@@ -1,9 +1,9 @@
 {% extends "base.html" %}
 
-{% block title %}Sign In{% endblock %}
+{% block title %}Edit Profile{% endblock %}
 
 {% block content %}
-  <h2>Sign In</h2>
+  <h2>Edit Profile</h2>
   <form method="post">
     {{ form.hidden_tag() }}
     <p>
@@ -11,11 +11,16 @@
       {{ form.username(size=32) }}
     </p>
     <p>
+      {{ form.email.label }}<br>
+      {{ form.email(size=32) }}
+    </p>
+    <p>
       {{ form.password.label }}<br>
       {{ form.password(size=32) }}
     </p>
     <p>
-      {{ form.remember_me() }} {{ form.remember_me.label }}
+      {{ form.password2.label }}<br>
+      {{ form.password2(size=32) }}
     </p>
     <p>{{ form.submit() }}</p>
   </form>

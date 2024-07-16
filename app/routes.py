@@ -1,66 +1,51 @@
-from flask import Blueprint, render_template, flash, redirect, url_for, request
-from app import db
-from app.forms import LoginForm, RegistrationForm, EditProfileForm
+from flask import render_template, request, redirect, url_for, flash
+from app import app, db, bcrypt
 from app.models import User
-from flask_login import current_user, login_user, logout_user, login_required
-from urllib.parse import urlparse
+from app.forms import LoginForm, RegistrationForm
+from flask_login import login_user, logout_user, current_user, login_required
 
-bp = Blueprint('main', __name__)
-
-@bp.route('/')
-@bp.route('/index')
+@app.route('/')
 @login_required
 def index():
-    return render_template('home.html', title='Home')
+    return render_template('index.html')
 
-@bp.route('/login', methods=['GET', 'POST'])
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if current_user.is_authenticated:
+        return redirect(url_for('index'))
+    form = RegistrationForm()
+    if form.validate_on_submit():
+        hashed_password = bcrypt.generate_password_hash(form.password.data).decode('utf-8')
+        user = User(username=form.username.data, password=hashed_password)
+        db.session.add(user)
+        db.session.commit()
+        flash('Вы успешно зарегистрировались!', 'success')
+        return redirect(url_for('login'))
+    return render_template("register.html", form=form)
+
+
+@app.route('/login', methods=['GET', 'POST'])
 def login():
     if current_user.is_authenticated:
-        return redirect(url_for('main.index'))
+        return redirect(url_for('index'))
     form = LoginForm()
     if form.validate_on_submit():
         user = User.query.filter_by(username=form.username.data).first()
-        if user is None or not user.check_password(form.password.data):
-            flash('Invalid username or password')
-            return redirect(url_for('main.login'))
-        login_user(user, remember=form.remember_me.data)
-        next_page = request.args.get('next')
-        if not next_page or urlparse(next_page).netloc != '':
-            next_page = url_for('main.index')
-        return redirect(next_page)
-    return render_template('login.html', title='Sign In', form=form)
+        if user and bcrypt.check_password_hash(user.password, form.password.data):
+            login_user(user)
+            return redirect(url_for('index'))
+        else:
+            flash('Неверно введены данные аккаунта', 'danger')
+    return render_template("login.html", form=form)
 
-@bp.route('/logout')
+@app.route('/logout')
 def logout():
     logout_user()
-    return redirect(url_for('main.index'))
+    return redirect(url_for('login'))
 
-@bp.route('/register', methods=['GET', 'POST'])
-def register():
-    if current_user.is_authenticated:
-        return redirect(url_for('main.index'))
-    form = RegistrationForm()
-    if form.validate_on_submit():
-        user = User(username=form.username.data, email=form.email.data)
-        user.set_password(form.password.data)
-        db.session.add(user)
-        db.session.commit()
-        flash('Congratulations, you are now a registered user!')
-        return redirect(url_for('main.login'))
-    return render_template('register.html', title='Register', form=form)
-
-@bp.route('/edit_profile', methods=['GET', 'POST'])
+@app.route('/click')
 @login_required
-def edit_profile():
-    form = EditProfileForm()
-    if form.validate_on_submit():
-        current_user.username = form.username.data
-        current_user.email = form.email.data
-        current_user.set_password(form.password.data)
-        db.session.commit()
-        flash('Your changes have been saved.')
-        return redirect(url_for('main.edit_profile'))
-    elif request.method == 'GET':
-        form.username.data = current_user.username
-        form.email.data = current_user.email
-    return render_template('edit_profile.html', title='Edit Profile', form=form)
+def click():
+    current_user.clicks += 1
+    db.session.commit()
+    return redirect(url_for('index'))
